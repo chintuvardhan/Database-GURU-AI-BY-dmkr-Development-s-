@@ -5,6 +5,17 @@ import { GeminiService, OptimizationResult } from './services/gemini.service';
 
 type Feature = 'NL-to-SQL' | 'Optimize Query' | 'Design Schema' | 'Explain SQL' | 'Analyze & Suggest';
 
+interface HistoryItem {
+  id: number;
+  feature: Feature;
+  db: string;
+  userInput: string;
+  schemaContext: string;
+  uploadedFileName: string;
+  output: string;
+  optimizationResult: OptimizationResult | null;
+}
+
 // Make highlight.js available
 declare var hljs: any;
 
@@ -16,6 +27,7 @@ declare var hljs: any;
 })
 export class AppComponent {
   private geminiService = inject(GeminiService);
+  private readonly storageKey = 'db_guru_history';
 
   readonly features: Feature[] = ['NL-to-SQL', 'Optimize Query', 'Design Schema', 'Explain SQL', 'Analyze & Suggest'];
   readonly databases = ['PostgreSQL', 'MySQL', 'SQL Server', 'Oracle', 'SQLite'];
@@ -24,20 +36,22 @@ export class AppComponent {
   selectedFeature = signal<Feature>(this.features[0]);
   selectedDb = signal<string>(this.databases[0]);
   schemaContext = signal<string>('');
-  uploadedFileName = signal<string>(''); // New signal for uploaded file name
+  uploadedFileName = signal<string>('');
   userInput = signal<string>('');
   output = signal<string>('');
   optimizationResult = signal<OptimizationResult | null>(null);
   loading = signal<boolean>(false);
   error = signal<string | null>(null);
   copied = signal<boolean>(false);
+  history = signal<HistoryItem[]>([]);
+  isContextVisible = signal<boolean>(true);
 
   // ElementRef for the output container to apply syntax highlighting
   outputContainer = viewChild<ElementRef>('outputContainer');
   fileInput = viewChild<ElementRef>('fileInput');
 
-
   constructor() {
+    this.loadHistoryFromStorage();
     // Effect to apply syntax highlighting whenever the output changes
     effect(() => {
         if (this.outputContainer() && (this.output() || this.optimizationResult())) {
@@ -91,6 +105,7 @@ export class AppComponent {
       const text = e.target?.result;
       this.schemaContext.set(text as string);
       this.uploadedFileName.set(file.name);
+      this.isContextVisible.set(true); // Ensure context is visible on file upload
     };
 
     reader.onerror = (e) => {
@@ -109,6 +124,10 @@ export class AppComponent {
     }
   }
 
+  toggleContextVisibility(): void {
+    this.isContextVisible.update(v => !v);
+  }
+
   async generate(): Promise<void> {
     if (!this.userInput().trim() || this.loading()) {
       return;
@@ -119,27 +138,43 @@ export class AppComponent {
     this.optimizationResult.set(null);
     this.error.set(null);
 
+    let finalOutput = '';
+    let finalOptimizationResult: OptimizationResult | null = null;
+
     try {
       const feature = this.selectedFeature();
       const db = this.selectedDb();
       const input = this.userInput();
-      const schema = this.schemaContext(); // Get schema context
+      const schema = this.schemaContext();
 
       if (feature === 'Optimize Query') {
         const result = await this.geminiService.generateStructured(db, input, schema);
         this.optimizationResult.set(result);
+        finalOptimizationResult = result;
       } else {
-        // Handle streaming features
         const stream = this.geminiService.generateStream(feature, db, input, schema);
         for await (const chunk of stream) {
           this.output.update(current => current + chunk);
         }
+        finalOutput = this.output();
       }
+      
+      // Save to history on success
+      this.addToHistory({
+        feature: feature,
+        db: db,
+        userInput: input,
+        schemaContext: schema,
+        uploadedFileName: this.uploadedFileName(),
+        output: finalOutput,
+        optimizationResult: finalOptimizationResult
+      });
+
     } catch (e) {
       const rawMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
       let displayMessage = `An error occurred while communicating with the AI: ${rawMessage}`;
       
-      if (rawMessage.includes('token count exceeds') || rawMessage.includes('400')) { // Check for token limit or bad request
+      if (rawMessage.includes('token count exceeds') || rawMessage.includes('400')) {
         displayMessage = 'Error: The provided context is too large. Please use a smaller file or reduce the amount of text in the context field.';
       }
 
@@ -156,5 +191,50 @@ export class AppComponent {
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 2000);
     });
+  }
+  
+  // History Management
+  private addToHistory(item: Omit<HistoryItem, 'id'>): void {
+    const newItem: HistoryItem = { ...item, id: Date.now() };
+    this.history.update(currentHistory => [newItem, ...currentHistory]);
+    this.saveHistoryToStorage();
+  }
+
+  loadHistoryItem(item: HistoryItem): void {
+    this.selectedFeature.set(item.feature);
+    this.selectedDb.set(item.db);
+    this.userInput.set(item.userInput);
+    this.schemaContext.set(item.schemaContext);
+    this.uploadedFileName.set(item.uploadedFileName);
+    this.output.set(item.output);
+    this.optimizationResult.set(item.optimizationResult);
+    this.error.set(null);
+  }
+
+  clearHistory(): void {
+    if (confirm('Are you sure you want to clear the entire history? This cannot be undone.')) {
+        this.history.set([]);
+        localStorage.removeItem(this.storageKey);
+    }
+  }
+
+  private saveHistoryToStorage(): void {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(this.history()));
+    } catch (e) {
+      console.error('Failed to save history to localStorage:', e);
+    }
+  }
+
+  private loadHistoryFromStorage(): void {
+    try {
+      const storedHistory = localStorage.getItem(this.storageKey);
+      if (storedHistory) {
+        this.history.set(JSON.parse(storedHistory));
+      }
+    } catch (e) {
+      console.error('Failed to load history from localStorage:', e);
+      this.history.set([]);
+    }
   }
 }

@@ -132,7 +132,7 @@ export class GeminiService {
         };
       case 'Analyze & Suggest':
         return {
-            systemInstruction: `You are an expert data analyst and database architect specializing in ${db}. Your task is to analyze the provided data context (e.g., schema, sample data) and provide insightful suggestions based on the user's request. Your analysis should be clear, well-structured, and actionable. Format your response using markdown for readability.`,
+            systemInstruction: `You are a world-class data analyst and database architect for ${db}. Your primary goal is to provide precise, actionable, and highly relevant suggestions. Before you provide a final answer, it is critical that you first evaluate the user's request and the provided context. If the request is vague, ambiguous, or lacks specific details, you MUST ask clarifying questions. Similarly, if the provided context (schema, data, etc.) is insufficient to give a high-quality, accurate answer, you MUST ask for more information. Do not make assumptions. Engage in a dialogue with the user to ensure you have all the necessary details before offering your expert analysis. Format your final response using markdown for readability.`,
             userPrompt: `${contextPreamble}Based on the provided context, please analyze and provide suggestions for the following request: "${input}"`
         };
       default:
