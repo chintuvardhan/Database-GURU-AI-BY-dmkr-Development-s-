@@ -32,6 +32,10 @@ export class AppComponent {
   readonly features: Feature[] = ['NL-to-SQL', 'Optimize Query', 'Design Schema', 'Explain SQL', 'Analyze & Suggest'];
   readonly databases = ['PostgreSQL', 'MySQL', 'SQL Server', 'Oracle', 'SQLite'];
 
+  // App Readiness
+  readonly isReady = this.geminiService.isInitialized;
+  readonly initializationError = computed(() => this.geminiService.error());
+
   // State Signals
   selectedFeature = signal<Feature>(this.features[0]);
   selectedDb = signal<string>(this.databases[0]);
@@ -42,7 +46,7 @@ export class AppComponent {
   optimizationResult = signal<OptimizationResult | null>(null);
   loading = signal<boolean>(false);
   error = signal<string | null>(null);
-  copied = signal<boolean>(false);
+  copiedStates = signal<{ [key: string]: boolean }>({});
   history = signal<HistoryItem[]>([]);
   isContextVisible = signal<boolean>(true);
   isHistoryVisible = signal<boolean>(true);
@@ -137,7 +141,7 @@ export class AppComponent {
   }
 
   async generate(): Promise<void> {
-    if (!this.userInput().trim() || this.loading()) {
+    if (!this.userInput().trim() || this.loading() || !this.isReady()) {
       return;
     }
 
@@ -193,12 +197,32 @@ export class AppComponent {
     }
   }
 
-  copyToClipboard(textToCopy: string): void {
+  copyToClipboard(textToCopy: string, type: string): void {
     if (!textToCopy) return;
     navigator.clipboard.writeText(textToCopy).then(() => {
-      this.copied.set(true);
-      setTimeout(() => this.copied.set(false), 2000);
+      this.copiedStates.update(states => ({ ...states, [type]: true }));
+      setTimeout(() => {
+        this.copiedStates.update(states => ({ ...states, [type]: false }));
+      }, 2000);
     });
+  }
+
+  copyAnalysisToClipboard(result: OptimizationResult): void {
+    const analysisText = `
+# Optimization Analysis
+
+## Summary
+${result.summary}
+
+## Recommendations
+${result.recommendations.map(r => `- **${r.title}:** ${r.description}`).join('\n')}
+
+## Optimized Query
+\`\`\`sql
+${result.optimizedQuery}
+\`\`\`
+    `.trim();
+    this.copyToClipboard(analysisText, 'analysis');
   }
   
   // History Management
@@ -241,7 +265,15 @@ export class AppComponent {
     try {
       const storedHistory = localStorage.getItem(this.storageKey);
       if (storedHistory) {
-        this.history.set(JSON.parse(storedHistory));
+        const parsedHistory = JSON.parse(storedHistory);
+        // Add validation to ensure the parsed data is an array
+        if (Array.isArray(parsedHistory)) {
+          this.history.set(parsedHistory);
+        } else {
+          // Handle case where stored data is not an array
+          console.warn('Stored history is not an array, ignoring.');
+          this.history.set([]);
+        }
       }
     } catch (e) {
       console.error('Failed to load history from localStorage:', e);

@@ -21,6 +21,19 @@
     .hljs {
       background: transparent !important;
     }
+    .blinking-cursor {
+        display: inline-block;
+        width: 8px;
+        height: 1em;
+        background-color: #67e8f9; /* cyan-300 */
+        animation: blink 1s step-end infinite;
+        vertical-align: text-bottom;
+        margin-left: 2px;
+    }
+    @keyframes blink {
+        from, to { background-color: transparent; }
+        50% { background-color: #67e8f9; }
+    }
   </style>
 <script type="importmap">
 {

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { GoogleGenAI, Type } from '@google/genai';
 
 export interface OptimizationResult {
@@ -14,21 +14,37 @@ export interface OptimizationResult {
   providedIn: 'root'
 })
 export class GeminiService {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
   private readonly model = 'gemini-2.5-flash';
 
+  private _error = signal<string | null>(null);
+  private _isInitialized = signal<boolean>(false);
+
+  readonly error = this._error.asReadonly();
+  readonly isInitialized = this._isInitialized.asReadonly();
+
   constructor() {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      throw new Error('API_KEY environment variable not set');
+    try {
+      const apiKey = process.env.API_KEY;
+      if (!apiKey) {
+        throw new Error('API_KEY environment variable not set. Please configure it to use the application.');
+      }
+      this.ai = new GoogleGenAI({ apiKey });
+      this._isInitialized.set(true);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'An unknown initialization error occurred.';
+      this._error.set(message);
+      console.error('Gemini Service Initialization Error:', e);
     }
-    this.ai = new GoogleGenAI({ apiKey });
   }
 
   /**
    * Generates a streaming response for features that produce text or code.
    */
   async *generateStream(feature: string, db: string, input: string, schemaContext: string): AsyncGenerator<string> {
+    if (!this.ai) {
+      throw new Error('Gemini service is not initialized.');
+    }
     const { systemInstruction, userPrompt } = this.getPrompts(feature, db, input, schemaContext);
 
     try {
@@ -54,6 +70,9 @@ export class GeminiService {
    * Generates a structured JSON response for the Optimize Query feature.
    */
   async generateStructured(db: string, input: string, schemaContext: string): Promise<OptimizationResult> {
+    if (!this.ai) {
+      throw new Error('Gemini service is not initialized.');
+    }
     const { systemInstruction, userPrompt, schema } = this.getPrompts('Optimize Query', db, input, schemaContext);
 
     try {
@@ -110,14 +129,16 @@ export class GeminiService {
                   properties: {
                     title: { type: Type.STRING, description: "A short title for the recommendation (e.g., 'Add Index')." },
                     description: { type: Type.STRING, description: "A detailed explanation of the recommendation and its benefits." }
-                  }
+                  },
+                  required: ['title', 'description']
                 }
               },
               optimizedQuery: {
                 type: Type.STRING,
                 description: "The fully optimized SQL query."
               }
-            }
+            },
+            required: ['summary', 'recommendations', 'optimizedQuery']
           }
         };
       case 'Design Schema':

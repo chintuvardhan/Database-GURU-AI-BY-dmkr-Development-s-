@@ -1,4 +1,14 @@
-<div class="min-h-screen bg-slate-900 text-slate-200 font-sans">
+<div class="min-h-screen bg-slate-900 text-slate-200 font-sans" [class.pt-12]="initializationError()">
+  <!-- Global Initialization Error -->
+  @if (initializationError()) {
+    <div class="bg-red-600 text-white p-3 text-center font-semibold fixed top-0 left-0 right-0 z-50 shadow-lg">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-2 -mt-1" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+      </svg>
+      {{ initializationError() }}
+    </div>
+  }
+
   <!-- History Sidebar -->
   <aside 
     class="bg-slate-950/50 border-r border-slate-800 p-4 flex flex-col fixed inset-y-0 left-0 z-30 w-[280px] transition-transform duration-300 ease-in-out"
@@ -15,7 +25,7 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-bold text-slate-200">History</h2>
       @if(history().length > 0) {
-        <button (click)="clearHistory()" class="text-xs font-semibold text-slate-400 hover:text-red-400 transition-colors">
+        <button [disabled]="!isReady()" (click)="clearHistory()" class="text-xs font-semibold text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
           Clear All
         </button>
       }
@@ -25,8 +35,10 @@
         <ul class="space-y-2">
           @for (item of history(); track item.id) {
             <li 
-              (click)="loadHistoryItem(item)"
-              class="group flex items-start gap-3 p-2 rounded-md hover:bg-slate-800 cursor-pointer transition-colors duration-200">
+              (click)="isReady() && loadHistoryItem(item)"
+              class="group flex items-start gap-3 p-2 rounded-md hover:bg-slate-800 transition-colors duration-200"
+              [class.cursor-pointer]="isReady()"
+              [class.cursor-not-allowed]="!isReady()">
               <div class="flex-shrink-0 h-8 w-8 flex items-center justify-center bg-slate-700 rounded-md mt-1 group-hover:bg-cyan-700">
                 <!-- Icon based on feature -->
                 @switch(item.feature) {
@@ -83,7 +95,8 @@
             @for (feature of features; track feature) {
               <button
                 (click)="selectFeature(feature)"
-                [class]="'px-4 py-2 text-sm font-semibold rounded-md transition-all duration-200 ' + (selectedFeature() === feature ? 'bg-cyan-600 text-white shadow-lg' : 'bg-slate-700 hover:bg-slate-600 text-slate-300')">
+                [disabled]="!isReady()"
+                [class]="'px-4 py-2 text-sm font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ' + (selectedFeature() === feature ? 'bg-cyan-600 text-white shadow-lg' : 'bg-slate-700 hover:bg-slate-600 text-slate-300')">
                 {{ feature }}
               </button>
             }
@@ -96,7 +109,8 @@
           <select
             id="db-select"
             [(ngModel)]="selectedDb"
-            class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full md:w-1/3 p-2.5">
+            [disabled]="!isReady()"
+            class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full md:w-1/3 p-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
             @for (db of databases; track db) {
               <option [value]="db">{{ db }}</option>
             }
@@ -115,10 +129,10 @@
                   Context <span class="text-slate-400">(Optional)</span>
                 </label>
               </div>
-              <label for="file-upload" (click)="$event.stopPropagation()" class="cursor-pointer text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors z-10">
+              <label for="file-upload" [class.hidden]="!isReady()" (click)="$event.stopPropagation()" class="cursor-pointer text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors z-10">
                 Upload File
               </label>
-              <input type="file" id="file-upload" class="hidden" #fileInput (change)="onFileSelected($event)" accept=".sql,.txt,.ddl,.json,.csv,.xml,.yaml,.yml">
+              <input type="file" id="file-upload" class="hidden" #fileInput (change)="onFileSelected($event)" [disabled]="!isReady()" accept=".sql,.txt,.ddl,.json,.csv,.xml,.yaml,.yml">
             </div>
 
             <div class="overflow-hidden transition-all duration-500 ease-in-out" [style.max-height.px]="isContextVisible() ? 500 : 0">
@@ -131,15 +145,16 @@
                       </svg>
                       <span class="text-sm font-medium text-slate-200 truncate" [title]="uploadedFileName()">{{ uploadedFileName() }}</span>
                     </div>
-                    <button (click)="clearSchemaContext()" class="text-sm font-semibold text-slate-400 hover:text-red-400 transition-colors ml-4">&times; Clear</button>
+                    <button [disabled]="!isReady()" (click)="clearSchemaContext()" class="text-sm font-semibold text-slate-400 hover:text-red-400 transition-colors ml-4 disabled:opacity-50 disabled:cursor-not-allowed">&times; Clear</button>
                   </div>
                 } @else {
                   <textarea
                     id="schema-context"
                     [(ngModel)]="schemaContext"
+                    [disabled]="!isReady()"
                     placeholder="Paste schema, data samples, or other context here... or upload a file."
                     rows="5"
-                    class="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 block w-full p-4 transition-colors duration-200 resize-none font-mono"></textarea>
+                    class="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 block w-full p-4 transition-colors duration-200 resize-none font-mono disabled:opacity-50 disabled:cursor-not-allowed"></textarea>
                   <p class="text-xs text-slate-500 mt-1">Provide context (e.g., CREATE TABLE, JSON) or upload a file (.sql, .json, .csv, etc.).</p>
                 }
               </div>
@@ -154,15 +169,16 @@
             id="user-input"
             [(ngModel)]="userInput"
             [placeholder]="placeholder()"
+            [disabled]="!isReady()"
             rows="6"
-            class="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 block w-full p-4 transition-colors duration-200 resize-none font-mono"></textarea>
+            class="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 block w-full p-4 transition-colors duration-200 resize-none font-mono disabled:opacity-50 disabled:cursor-not-allowed"></textarea>
         </div>
 
         <!-- Generate Button -->
         <div class="flex justify-end">
           <button
             (click)="generate()"
-            [disabled]="loading() || !userInput().trim()"
+            [disabled]="loading() || !userInput().trim() || !isReady()"
             class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
             @if (loading()) {
               <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -179,7 +195,7 @@
 
       <!-- Output Section -->
       <div class="mt-10" #outputContainer>
-        @if (loading()) {
+        @if (loading() && !output() && !optimizationResult()) {
           <div class="flex flex-col items-center justify-center p-8 bg-slate-800 rounded-lg border border-slate-700">
             <svg class="animate-spin h-8 w-8 text-cyan-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -201,26 +217,21 @@
           <div class="bg-slate-800 rounded-lg border border-slate-700 shadow-xl relative">
             <div class="flex justify-between items-center px-4 py-2 bg-slate-700/50 rounded-t-lg">
               <h3 class="text-lg font-semibold text-slate-300">AI Generated Response</h3>
+            </div>
+            <div class="p-4 relative group">
+              <pre class="whitespace-pre-wrap break-words"><code class="language-sql font-mono text-sm text-cyan-300">{{ output() }}@if(loading() && selectedFeature() !== 'Optimize Query'){<span class="blinking-cursor"></span>}</code></pre>
               <button
-                (click)="copyToClipboard(output())"
-                class="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-200"
-                [class]="copied() ? 'bg-green-600 text-white' : 'bg-slate-600 hover:bg-slate-500 text-slate-300'">
-                @if (copied()) {
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
+                (click)="copyToClipboard(output(), 'output')"
+                class="absolute top-6 right-6 flex items-center gap-2 px-2 py-1 text-xs font-medium rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                [class]="copiedStates()['output'] ? 'bg-green-600 text-white' : 'bg-slate-600 hover:bg-slate-500 text-slate-300'">
+                @if (copiedStates()['output']) {
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
                   <span>Copied!</span>
                 } @else {
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
-                    <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z" />
-                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z" /></svg>
                   <span>Copy</span>
                 }
               </button>
-            </div>
-            <div class="p-4">
-              <pre class="whitespace-pre-wrap break-words"><code class="language-sql font-mono text-sm text-cyan-300">{{ output() }}</code></pre>
             </div>
           </div>
         }
@@ -230,15 +241,15 @@
             <div class="flex justify-between items-center px-4 py-2 bg-slate-700/50 rounded-t-lg">
               <h3 class="text-lg font-semibold text-slate-300">Optimization Analysis</h3>
               <button
-                (click)="copyToClipboard(result.optimizedQuery)"
+                (click)="copyAnalysisToClipboard(result)"
                 class="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-200"
-                [class]="copied() ? 'bg-green-600 text-white' : 'bg-slate-600 hover:bg-slate-500 text-slate-300'">
-                @if (copied()) {
+                [class]="copiedStates()['analysis'] ? 'bg-green-600 text-white' : 'bg-slate-600 hover:bg-slate-500 text-slate-300'">
+                @if (copiedStates()['analysis']) {
                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                <span>Copied Query!</span>
+                <span>Copied!</span>
                 } @else {
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z" /></svg>
-                  <span>Copy Query</span>
+                  <span>Copy Analysis</span>
                 }
               </button>
             </div>
@@ -272,8 +283,20 @@
               @if(result.optimizedQuery) {
                 <div>
                   <h4 class="text-md font-semibold text-cyan-400 mb-2">Optimized Query</h4>
-                   <div class="p-4 bg-slate-900 rounded-md">
+                   <div class="p-4 bg-slate-900 rounded-md relative group">
                      <pre class="whitespace-pre-wrap break-words"><code class="language-sql font-mono text-sm text-cyan-300">{{ result.optimizedQuery }}</code></pre>
+                     <button
+                        (click)="copyToClipboard(result.optimizedQuery, 'optimizedQuery')"
+                        class="absolute top-2 right-2 flex items-center gap-2 px-2 py-1 text-xs font-medium rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        [class]="copiedStates()['optimizedQuery'] ? 'bg-green-600 text-white' : 'bg-slate-600 hover:bg-slate-500 text-slate-300'">
+                        @if (copiedStates()['optimizedQuery']) {
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                          <span>Copied!</span>
+                        } @else {
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z" /></svg>
+                          <span>Copy</span>
+                        }
+                      </button>
                    </div>
                 </div>
               }
