@@ -1,0 +1,5 @@
+{
+  "name": "Database Guru AI",
+  "description": "An intelligent AI assistant for database management and optimization. It offers natural language to SQL conversion, query optimization, schema design, and more, with support for multiple database systems.",
+  "requestFramePermissions": []
+}
