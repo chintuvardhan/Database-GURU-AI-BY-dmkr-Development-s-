@@ -45,12 +45,16 @@ export class AppComponent {
   copied = signal<boolean>(false);
   history = signal<HistoryItem[]>([]);
   isContextVisible = signal<boolean>(true);
+  isHistoryVisible = signal<boolean>(true);
 
   // ElementRef for the output container to apply syntax highlighting
   outputContainer = viewChild<ElementRef>('outputContainer');
   fileInput = viewChild<ElementRef>('fileInput');
 
   constructor() {
+    if (typeof window !== 'undefined') {
+        this.isHistoryVisible.set(window.innerWidth >= 768);
+    }
     this.loadHistoryFromStorage();
     // Effect to apply syntax highlighting whenever the output changes
     effect(() => {
@@ -126,6 +130,10 @@ export class AppComponent {
 
   toggleContextVisibility(): void {
     this.isContextVisible.update(v => !v);
+  }
+
+  toggleHistoryVisibility(): void {
+    this.isHistoryVisible.update(v => !v);
   }
 
   async generate(): Promise<void> {
@@ -209,6 +217,9 @@ export class AppComponent {
     this.output.set(item.output);
     this.optimizationResult.set(item.optimizationResult);
     this.error.set(null);
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      this.isHistoryVisible.set(false);
+    }
   }
 
   clearHistory(): void {
